@@ -13,6 +13,24 @@ function getWorkspaceName(): string | undefined {
   return folders[0].name;
 }
 
+const MAX_SELECTION_LINES = 30;
+const MAX_SELECTION_CHARS = 1000;
+
+function dedent(text: string): string {
+  const lines = text.split("\n");
+  const nonEmptyLines = lines.filter((l) => l.trim().length > 0);
+  if (nonEmptyLines.length === 0) {
+    return text;
+  }
+  const minIndent = Math.min(
+    ...nonEmptyLines.map((l) => l.match(/^(\s*)/)?.[1].length ?? 0)
+  );
+  if (minIndent === 0) {
+    return text;
+  }
+  return lines.map((l) => l.slice(minIndent)).join("\n");
+}
+
 function getSelectionContext(): string | undefined {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
@@ -26,13 +44,25 @@ function getSelectionContext(): string | undefined {
   if (!selectedText.trim()) {
     return undefined;
   }
+
+  const lineCount = selection.end.line - selection.start.line + 1;
+  if (lineCount > MAX_SELECTION_LINES) {
+    return undefined;
+  }
+
   const relativePath = vscode.workspace.asRelativePath(editor.document.uri);
-  const line = selection.start.line + 1;
+  const startLine = selection.start.line + 1;
+  const endLine = selection.end.line + 1;
+  const lineRef =
+    startLine === endLine ? `${startLine}` : `${startLine}-${endLine}`;
+
+  const dedented = dedent(selectedText);
   const truncated =
-    selectedText.length > 500
-      ? `${selectedText.slice(0, 500)}...`
-      : selectedText;
-  return `Context: ${relativePath}:${line}\n${truncated}`;
+    dedented.length > MAX_SELECTION_CHARS
+      ? `${dedented.slice(0, MAX_SELECTION_CHARS)}...`
+      : dedented;
+
+  return `${relativePath}:${lineRef}\n${truncated}`;
 }
 
 // ---------------------------------------------------------------------------

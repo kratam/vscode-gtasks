@@ -249,6 +249,53 @@ export async function addTask(options: AddTaskOptions): Promise<void> {
   }
 }
 
+export interface TaskEntry {
+  id: string;
+  title: string;
+  notes?: string;
+  due?: string;
+  status: string;
+}
+
+export async function listTasks(listId: string): Promise<TaskEntry[]> {
+  const token = await getAccessToken();
+  const res = await apiRequest(
+    "GET",
+    `/tasks/v1/lists/${encodeURIComponent(listId)}/tasks?maxResults=100&showCompleted=false`,
+    token
+  );
+  if (res.statusCode !== 200) {
+    throw new Error(`Failed to list tasks: ${res.body}`);
+  }
+  const parsed = JSON.parse(res.body);
+  return (parsed.items ?? []).map(
+    (item: { id: string; title: string; notes?: string; due?: string; status: string }) => ({
+      id: item.id,
+      title: item.title,
+      notes: item.notes,
+      due: item.due,
+      status: item.status,
+    })
+  );
+}
+
+export async function updateTaskNotes(
+  listId: string,
+  taskId: string,
+  notes: string
+): Promise<void> {
+  const token = await getAccessToken();
+  const res = await apiRequest(
+    "PATCH",
+    `/tasks/v1/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(taskId)}`,
+    token,
+    JSON.stringify({ notes })
+  );
+  if (res.statusCode !== 200) {
+    throw new Error(`Failed to update task: ${res.body}`);
+  }
+}
+
 async function getLastTaskId(
   listId: string,
   token: string

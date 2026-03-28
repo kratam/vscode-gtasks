@@ -15,6 +15,10 @@
       {
         "command": "vscode-gtasks.quickAdd",
         "title": "GTasks: Quick Add Task"
+      },
+      {
+        "command": "vscode-gtasks.pickTask",
+        "title": "GTasks: Pick Task → Claude"
       }
     ],
     "keybindings": [
@@ -22,6 +26,11 @@
         "command": "vscode-gtasks.quickAdd",
         "key": "ctrl+shift+g",
         "mac": "cmd+shift+g"
+      },
+      {
+        "command": "vscode-gtasks.pickTask",
+        "key": "ctrl+k ctrl+t",
+        "mac": "cmd+k cmd+t"
       }
     ]
   },

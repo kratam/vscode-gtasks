@@ -2,97 +2,84 @@
 
 VSCode extension: gyors task capture Google Tasks-ba, workspace-alapú task listákkal.
 
-## Felvetés
+## Features
 
-Claude Code session közben gyakran jut eszembe valami TODO/ötlet amit később kéne megcsinálni. Jelenleg nincs gyors mód ezt rögzíteni anélkül, hogy megzavarná a flow-t. Kell egy billentyűkombó → input box → done megoldás.
+### Quick Add (`Cmd+Shift+G`)
 
-### Követelmények
+1. Megnyomod `Cmd+Shift+G`
+2. Beírod a task nevét + opcionális @tag-eket
+3. Enter → opcionális details input (Esc = skip)
+4. Task létrejön a workspace nevével megegyező Google Tasks listában
 
-- **Gyors capture:** egy hotkey → input box → Enter → kész, max 3 mp
-- **Workspace-aware:** a VSCode workspace neve alapján automatikusan a megfelelő Google Tasks listába kerüljön
-- **Auto-create list:** ha nincs még ilyen nevű task lista, hozza létre
-- **Opcionális kontextus:** ha van kijelölt szöveg, az is kerüljön a task megjegyzésébe (fájl + sor hivatkozással)
-- **MCP kompatibilitás:** a Google Workspace MCP (`manage_tasks`) már konfigurálva van — Claude skill-ből is lehessen olvasni/írni a task-okat
+**@tag-ek:**
+- `@next` — lista elejére helyezi (magas prioritás)
+- `@today` / `@tomorrow` — mai/holnapi deadline
+- `@3d` / `@3day` / `@3days` — N nap múlva
+- `@2w` / `@2week` / `@2weeks` — N hét múlva
 
-## Kutatás
+**Kijelölt szöveg kontextus:** ha van kijelölt szöveg az editorban, automatikusan bekerül a task notes-ba (fájl + sorhivatkozás, dedented, max 30 sor / 1000 karakter).
 
-### Meglévő megoldások — nincs ami megfelelne
+### Pick Task → Claude (`Cmd+K, Cmd+T`)
 
-| Megoldás | Probléma |
-|---|---|
-| `KrishnaPravin.google-tasks` VSCode ext | Read-only tree view, 2021 óta elhagyott |
-| Google Tasks CLI (`BRO3886/gtasks`) | Jó CLI, de nincs VSCode integráció (input box) |
-| Todoist VSCode (`waymondo.todoist`) | Pont a kívánt UX, de Todoist-hoz kötött, nem Google Tasks |
-| Apple Reminders | Nincs jó MCP/API, nincs VSCode integráció |
-| TODO.md kézzel | Működik, de lassú (`- [ ]` gépelés), nincs sync más eszközökre |
-| Markdown Checkbox ext-ek | Gyorsítják a TODO.md szerkesztést, de nem external sync |
+1. Megnyomod `Cmd+K, Cmd+T`
+2. Dropdown a workspace task listájából
+3. Kiválasztod → új Claude Code tab nyílik a task szövegével mint initial prompt
+4. A Google Task notes-ba mentődik a Claude session ID (`s[sessionId]`)
+5. Legközelebb ugyanazt a task-ot választva → ugyanaz a Claude session folytatódik
 
-### Referencia implementáció
-
-**[waymondo/vscode-todoist](https://github.com/waymondo/vscode-todoist)** — a legjobb minta:
-- `Alt+T C` → quick add input box
-- Kijelölt szöveg → deep link kontextus a task-ban
-- Sidebar tree view a task-ok böngészéséhez
-- ~500 sor, egyszerű kódbázis
-
-### Elérhető Google Tasks API-k
-
-1. **Google Tasks REST API** — direkt OAuth2, teljes CRUD
-2. **Google Workspace MCP** (`mcp__google-workspace__manage_tasks`) — már konfigurálva, Claude-ból elérhető
-3. **`gtasks` Go CLI** — wrapper a REST API fölött, auth-ot kezeli
-
-## Terv
-
-### Architektúra
+## Architektúra
 
 ```
-vscode-gtasks/
-├── src/
-│   ├── extension.ts          # activate/deactivate, command regisztráció
-│   ├── google-tasks-api.ts   # Google Tasks API client (OAuth2)
-│   ├── task-list-manager.ts  # lista keresés/létrehozás workspace név alapján
-│   ├── quick-add.ts          # input box UI + task létrehozás
-│   └── tree-view.ts          # sidebar task lista (v2)
-├── package.json              # extension manifest, commands, keybindings
-├── tsconfig.json
-└── README.md
+User → VSCode Extension → Google Tasks REST API (OAuth2 token from macOS keychain)
 ```
 
-### Auth megközelítés
-
-Google OAuth2 Device Flow vagy Authorization Code Flow:
-- GCP project + OAuth consent screen (saját használatra "Testing" mód elég, nem kell publish)
-- Client credentials JSON a `~/.config/vscode-gtasks/` mappában
-- Token refresh automatikusan
-- Scope: `https://www.googleapis.com/auth/tasks`
-
-### UX flow
+A `gtasks` Go CLI-vel közös OAuth2 token-t használja (macOS keychain-ből olvassa). Nincs saját auth flow — a `gtasks login` parancsot kell egyszer futtatni.
 
 ```
-1. User megnyomja Cmd+Shift+G (vagy egyéni hotkey)
-2. VSCode showInputBox() felugrik: "Add task to [WorkspaceName]..."
-3. User beírja: "NTAK export refaktor"
-4. Enter →
-   a. Megkeresi a "[WorkspaceName]" nevű task listát Google Tasks-ban
-   b. Ha nincs → létrehozza
-   c. Létrehozza a task-ot
-   d. Ha volt kijelölt szöveg → notes mezőbe: "Context: file.ts:42\n<selected text>"
-5. Status bar notification: "Task added to [WorkspaceName]"
+src/
+├── extension.ts      # command regisztráció
+├── gtasks-cli.ts     # Google Tasks REST API client + OAuth2 token kezelés
+├── quick-add.ts      # quick add command: input box + @tag parsing
+└── pick-task.ts      # task picker → Claude Code integráció
 ```
+
+## Telepítés
+
+### Előfeltételek
+
+1. [gtasks CLI](https://github.com/BRO3886/gtasks) telepítve és bejelentkezve:
+   ```bash
+   curl -fsSL https://gtasks.sidv.dev/install | bash
+   gtasks login
+   ```
+
+2. [Claude Code VSCode extension](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code) (a Pick Task feature-höz)
+
+### Extension telepítés
+
+```bash
+cd vscode-gtasks
+npm install
+npm run build
+ln -sfn "$(pwd)" ~/.vscode/extensions/vscode-gtasks
+```
+
+VSCode-ban: `Cmd+Shift+P` → "Reload Window"
 
 ## TODO
 
-### v0.1 — MVP (quick add)
+### v0.1 — MVP ✅
 
-- [ ] GCP project + OAuth consent screen setup leírás
-- [ ] Projekt scaffold: `yo code` generátor, TypeScript, esbuild
-- [ ] Google Tasks API client implementálás (OAuth2 + token storage)
-- [ ] `quickAdd` command: input box → task létrehozás
-- [ ] Workspace név → task list mapping (auto-create)
-- [ ] Kijelölt szöveg kontextus (fájl + sor)
-- [ ] Status bar feedback ("Task added")
-- [ ] Keybinding: `Cmd+Shift+G` (konfiguálható)
-- [ ] README: telepítés, GCP setup, használat
+- [x] Google Tasks REST API client (OAuth2 token from keychain)
+- [x] `quickAdd` command: input box → task létrehozás
+- [x] Workspace név → task list mapping (auto-create)
+- [x] Kijelölt szöveg kontextus (fájl + sor, dedented)
+- [x] @tag-ek: `@next`, `@today`, `@tomorrow`, `@3d`, `@2w`
+- [x] Opcionális details (második input box)
+- [x] Status bar feedback
+- [x] Keybinding: `Cmd+Shift+G`
+- [x] Pick Task → Claude Code integráció (`Cmd+K, Cmd+T`)
+- [x] Session tracking: Claude session ID mentése a task notes-ba
 
 ### v0.2 — Tree view + sync
 
@@ -101,15 +88,8 @@ Google OAuth2 Device Flow vagy Authorization Code Flow:
 - [ ] Task törlés
 - [ ] Auto-refresh
 
-### v0.3 — Claude integráció
-
-- [ ] Claude skill: `/next-task` — kiolvassa a workspace task listáját és javasolja a következő teendőt
-- [ ] Claude skill: `/add-task` — hozzáad egy task-ot (MCP-n keresztül, nem az extension-ön)
-- [ ] Dokumentáció: hogyan használd Claude Code-dal együtt
-
 ### Későbbi ötletek
 
-- [ ] Due date support (natural language: "holnap", "péntekig")
 - [ ] Priority support
 - [ ] Sub-tasks
 - [ ] Task keresés (fuzzy)
