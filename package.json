@@ -29,8 +29,8 @@
       },
       {
         "command": "vscode-gtasks.pickTask",
-        "key": "ctrl+k ctrl+t",
-        "mac": "cmd+k cmd+t"
+        "key": "ctrl+k ctrl+g",
+        "mac": "cmd+k cmd+g"
       }
     ]
   },
