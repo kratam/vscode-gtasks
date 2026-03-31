@@ -24,13 +24,13 @@
     "keybindings": [
       {
         "command": "vscode-gtasks.quickAdd",
-        "key": "ctrl+shift+g",
-        "mac": "cmd+shift+g"
+        "key": "ctrl+k ctrl+t",
+        "mac": "cmd+k cmd+t"
       },
       {
         "command": "vscode-gtasks.pickTask",
-        "key": "ctrl+k ctrl+t",
-        "mac": "cmd+k cmd+t"
+        "key": "ctrl+k ctrl+g",
+        "mac": "cmd+k cmd+g"
       }
     ]
   },
